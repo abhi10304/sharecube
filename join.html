@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'">
+<title>Join a ShareCube Party</title>
+<meta name="description" content="You're invited to a ShareCube party. Open it in ShareCube on the same Wi-Fi or hotspot as the host, and every phone plays the same music in sync.">
+<!--
+  The Party Speaker web invite (Design/PROTOCOL.md §6):
+    https://abhi10304.github.io/sharecube/join.html#s=<party name>&c=<CODE>
+  Messages and WhatsApp make this https link tappable, where a sharecube:// link isn't. The name and
+  code are in the fragment (#…), which browsers never send to the server, and this page sends
+  nothing anywhere: no analytics, no external files, no cookies. It checks the name and code with the
+  apps' rules (android/mirror-core/…/core/party/PartyLinks.kt, Shared/Party/PartyProtocol.swift)
+  and offers "Open in ShareCube" (sharecube://join?s=…&c=…), which asks before joining.
+  Plain ES5, like the pages the phones serve.
+-->
+<style>
+  :root {
+    --bg: #f6f6fb; --card: #ffffff; --text: #1c1c1e; --muted: #5a5a66; --line: #e3e3ea;
+    --accent: #5856d6; --accent-soft: rgba(88, 86, 214, .10); --pink: #ffc7da; --on-pink: #0f0f12;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f0f14; --card: #1b1b22; --text: #f2f2f7; --muted: #a8a8b3; --line: #2c2c36;
+      --accent: #8e8cf5; --accent-soft: rgba(142, 140, 245, .14); --pink: #f2a9c3; --on-pink: #0f0f12;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 17px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+  .wrap { max-width: 560px; margin: 0 auto; padding: 28px 20px 64px; }
+  header { padding: 24px 0 8px; }
+  .brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; color: var(--text); text-decoration: none; }
+  .dot { width: 28px; height: 28px; border-radius: 8px; background: linear-gradient(135deg, #5856d6, #af52de 35%, #ff2d55 60%, #ff9500 80%, #30b0c7); }
+  h1 { font-size: 30px; line-height: 1.2; margin: 18px 0 6px; letter-spacing: -.02em; overflow-wrap: anywhere; }
+  h2 { font-size: 20px; margin: 36px 0 10px; letter-spacing: -.01em; }
+  p { margin: 0 0 10px; }
+  .muted { color: var(--muted); }
+  .small { font-size: 15px; }
+  .hidden { display: none; }
+  /* The ticket: the party's name and code big, on the party's pink (dark text in both themes). */
+  .ticket { background: var(--pink); color: var(--on-pink); border-radius: 28px; padding: 22px 22px 18px; margin: 18px 0 16px; }
+  .ticket .eyebrow { font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; margin: 0 0 4px; opacity: .75; }
+  .ticket h1 { margin: 0 0 14px; color: var(--on-pink); }
+  .ticket .label { font-size: 14px; font-weight: 600; margin: 0; opacity: .75; }
+  .code {
+    font: 700 40px/1.2 ui-monospace, SFMono-Regular, Menlo, Consolas, "Roboto Mono", monospace;
+    letter-spacing: .18em; margin: 2px 0 0; white-space: nowrap;
+  }
+  .sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0; }
+  a.btn {
+    display: block; text-align: center; border-radius: 999px; padding: 14px 20px; margin: 10px 0;
+    font-weight: 600; text-decoration: none; min-height: 52px;
+    background: var(--card); color: var(--accent); border: 1px solid var(--line);
+  }
+  a.btn.primary { background: var(--text); color: var(--bg); border-color: var(--text); font-size: 18px; }
+  a.btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .note { background: var(--accent-soft); border-radius: 16px; padding: 14px 18px; margin: 16px 0; }
+  a { color: var(--accent); }
+  a:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+  nav.links { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 40px; padding-top: 18px; border-top: 1px solid var(--line); }
+  footer { margin-top: 12px; font-size: 14px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <a class="brand" href="index.html"><span class="dot" aria-hidden="true"></span>ShareCube</a>
+</header>
+
+<main>
+<!-- A valid invite: filled in by the script below. -->
+<section id="invite" class="hidden" aria-labelledby="party-name">
+  <div class="ticket">
+    <p class="eyebrow">You're invited to a party</p>
+    <h1 id="party-name"></h1>
+    <p class="label">Party code</p>
+    <p class="code" id="party-code" aria-hidden="true"></p>
+    <p class="sr" id="party-code-spoken"></p>
+  </div>
+  <a class="btn primary" id="open-app" href="#">Open in ShareCube</a>
+  <p class="note"><strong>Join from the same Wi&#8209;Fi or hotspot as the host.</strong> No internet is needed once you're in, and ShareCube asks before it joins.</p>
+</section>
+
+<!-- No invite, or a broken one (and the page without its script). -->
+<section id="no-invite">
+  <h1 id="no-invite-title">Join a ShareCube party</h1>
+  <p id="no-invite-text">Open ShareCube on your phone, go to Party &amp; Talk &rsaquo; Speaker &rsaquo; Join a Party, and pick the party or enter its 6-character code. Join from the same Wi&#8209;Fi or hotspot as the host.</p>
+</section>
+
+<h2>Don't have ShareCube?</h2>
+<p class="muted small">It's free on iPhone and Android. Install it, then come back to this page and tap Open in ShareCube.</p>
+<a class="btn" id="get-ios" href="https://apps.apple.com/us/iphone/search?term=ShareCube">Get ShareCube on the App Store</a>
+<a class="btn" id="get-android" href="https://play.google.com/store/apps/details?id=app.sharecube">Get ShareCube on Google Play</a>
+</main>
+
+<nav class="links" aria-label="More">
+  <a href="index.html">ShareCube</a>
+  <a href="support.html">Support &amp; FAQ</a>
+  <a href="privacy.html">Privacy Policy</a>
+  <a href="terms.html">Terms of Use</a>
+</nav>
+<footer>&copy; 2026 Abhishek Johri. ShareCube: no account, no ads, no tracking.</footer>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // The access code alphabet and length (Shared/SharedStore.swift AccessCode, core/security/Access.kt).
+  var ALPHABET = 'ACDEFGHJKMNPQRTUVWXY34679';
+  var CODE_LENGTH = 6;
+  // A party name is what Bonjour can advertise: 1-63 UTF-8 bytes, no control or format characters.
+  var MAX_NAME_BYTES = 63;
+
+  // Unicode Cc and Cf (what Foundation's CharacterSet.controlCharacters and the Kotlin check refuse),
+  // as code point ranges: ES5 has no \p{…}.
+  var CONTROL = [
+    [0x0000, 0x001F], [0x007F, 0x009F], [0x00AD, 0x00AD], [0x0600, 0x0605], [0x061C, 0x061C],
+    [0x06DD, 0x06DD], [0x070F, 0x070F], [0x0890, 0x0891], [0x08E2, 0x08E2], [0x180E, 0x180E],
+    [0x200B, 0x200F], [0x202A, 0x202E], [0x2060, 0x2064], [0x2066, 0x206F], [0xFEFF, 0xFEFF],
+    [0xFFF9, 0xFFFB], [0x110BD, 0x110BD], [0x110CD, 0x110CD], [0x13430, 0x1343F],
+    [0x1BCA0, 0x1BCA3], [0x1D173, 0x1D17A], [0xE0001, 0xE0001], [0xE0020, 0xE007F]
+  ];
+
+  function isControl(cp) {
+    for (var i = 0; i < CONTROL.length; i++) {
+      if (cp >= CONTROL[i][0] && cp <= CONTROL[i][1]) return true;
+    }
+    return false;
+  }
+
+  function isValidName(name) {
+    if (!name) return false;
+    var bytes = 0;
+    for (var i = 0; i < name.length; i++) {
+      var cp = name.charCodeAt(i);
+      if (cp >= 0xD800 && cp <= 0xDBFF && i + 1 < name.length) {
+        var low = name.charCodeAt(i + 1);
+        if (low >= 0xDC00 && low <= 0xDFFF) {
+          cp = (cp - 0xD800) * 0x400 + (low - 0xDC00) + 0x10000;
+          i++;
+        }
+      }
+      if (isControl(cp)) return false;
+      bytes += cp < 0x80 ? 1 : cp < 0x800 ? 2 : cp < 0x10000 ? 3 : 4;
+    }
+    return bytes <= MAX_NAME_BYTES;
+  }
+
+  function isValidCode(code) {
+    if (code.length !== CODE_LENGTH) return false;
+    for (var i = 0; i < code.length; i++) {
+      if (ALPHABET.indexOf(code.charAt(i)) < 0) return false;
+    }
+    return true;
+  }
+
+  // Percent-decoding as the apps do it: a "+" stays a plus sign; a broken escape or bytes that
+  // aren't UTF-8 give null.
+  function decode(text) {
+    try {
+      return decodeURIComponent(text);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // "name=value" pairs from the fragment; the first item with a name wins.
+  function items(fragment) {
+    var list = [];
+    if (!fragment) return list;
+    var parts = fragment.split('&');
+    for (var i = 0; i < parts.length; i++) {
+      var part = parts[i];
+      var equals = part.indexOf('=');
+      if (equals < 0) {
+        list.push([decode(part) || part, null]);
+      } else {
+        list.push([decode(part.substring(0, equals)) || '', decode(part.substring(equals + 1))]);
+      }
+    }
+    return list;
+  }
+
+  function first(list, name) {
+    for (var i = 0; i < list.length; i++) {
+      if (list[i][0] === name) return list[i][1];
+    }
+    return null;
+  }
+
+  // The invite in this page's fragment, or null.
+  function parse(hash) {
+    var list = items(hash.charAt(0) === '#' ? hash.substring(1) : hash);
+    var name = first(list, 's');
+    var code = first(list, 'c');
+    if (name === null || code === null || !isValidName(name)) return null;
+    code = code.toUpperCase();
+    if (!isValidCode(code)) return null;
+    return { name: name, code: code };
+  }
+
+  function show(id, visible) {
+    var element = document.getElementById(id);
+    if (element) element.className = visible ? '' : 'hidden';
+  }
+
+  function text(id, value) {
+    var element = document.getElementById(id);
+    if (element) element.textContent = value;
+  }
+
+  function render() {
+    var hash = window.location.hash || '';
+    var invite = parse(hash);
+    if (invite) {
+      text('party-name', invite.name);
+      text('party-code', invite.code);
+      text('party-code-spoken', 'Code ' + invite.code.split('').join(' '));
+      var open = document.getElementById('open-app');
+      open.setAttribute('href', 'sharecube://join?s=' + encodeURIComponent(invite.name) + '&c=' + invite.code);
+      document.title = 'Join ' + invite.name + ' on ShareCube';
+      show('invite', true);
+      show('no-invite', false);
+    } else {
+      if (hash.length > 1) {
+        // Something was there, but it isn't a whole invite (cut short by a chat app, or edited).
+        text('no-invite-title', "This invite link isn't complete");
+        text('no-invite-text', 'Ask the host to share the invite again. Or open ShareCube, go to Party & Talk › Speaker › Join a Party, and enter the party\'s 6-character code. Join from the same Wi‑Fi or hotspot as the host.');
+      }
+      show('invite', false);
+      show('no-invite', true);
+    }
+  }
+
+  render();
+  // A second invite opened in the same tab only changes the fragment.
+  if (window.addEventListener) window.addEventListener('hashchange', render, false);
+})();
+</script>
+</body>
+</html>
